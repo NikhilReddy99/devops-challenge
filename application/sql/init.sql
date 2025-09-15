@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(100) NOT NULL UNIQUE,
+  display_name VARCHAR(200)
+);
+CREATE TABLE IF NOT EXISTS messages (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER,
+  content TEXT,
+  created_at TIMESTAMP DEFAULT now()
+);

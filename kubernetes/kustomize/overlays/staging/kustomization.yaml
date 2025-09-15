@@ -1,0 +1,16 @@
+namespace: staging
+resources:
+  - ../../base
+images:
+  - name: nikhilreddy99/frontend
+    newTag: "1.0.0"
+  - name: nikhilreddy99/chat-service
+    newTag: "1.0.0"
+configMapGenerator:
+  - name: app-config
+    behavior: replace
+    literals:
+      - ENV=staging
+      - USER_SERVICE_HOST=user-service.staging.svc.cluster.local
+patchesStrategicMerge:
+  - ingress.yaml

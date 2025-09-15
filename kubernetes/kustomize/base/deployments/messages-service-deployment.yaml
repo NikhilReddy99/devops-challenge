@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: messages-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: messages-service
+  template:
+    metadata:
+      labels:
+        app: messages-service
+    spec:
+      containers:
+      - name: messages-service
+        image: nikhilreddy99/messages-service:1.0.0
+        ports:
+        - containerPort: 8082

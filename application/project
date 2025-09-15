@@ -1,0 +1,311 @@
+# 🧪 DevOps Home Challenge – Infrastructure, CI/CD & Kubernetes Deployment
+
+## 🎯 Objective
+
+Design and provision infrastructure using **Terraform**, build a secure CI/CD pipeline using **Jenkins**, and deploy a containerized application to **Kubernetes** using **manifests or Helm**.
+
+**Choose your deployment target:**
+- **💻 Local**: Docker Desktop + Minikube (recommended for universal access)
+
+---
+
+## 📦 Scope Overview
+
+You are expected to:
+
+- Build infrastructure using Terraform (cloud or local)
+- Set up a Jenkins-based CI/CD pipeline
+- Containerize and deploy a sample application using Kubernetes
+- Integrate security tools for IaC and image scanning
+- Document and present your solution in a technical walkthrough
+
+**💡 Note**: This challenge is designed to work entirely locally. The local setup provides the same learning experience and demonstrates the same DevOps principles.
+
+---
+
+## 🏗️ Part 1 – Infrastructure as Code with Terraform
+
+### 🔨 Choose Your Path
+
+#### 💻 **Option B: Local Setup (Recommended)**
+*Choose this for a fully local development experience*
+
+**Infrastructure Requirements:**
+- Docker Desktop with Kubernetes enabled
+- Minikube cluster setup via Terraform
+- Local Jenkins instance (Docker container)
+- Local Docker registry
+- Terraform state stored locally or in Git
+
+**Local Setup Benefits:**
+- No AWS costs or account requirements
+- Faster iteration and testing
+- Complete control over environment
+- Same DevOps principles and practices
+
+### 📋 **Common Requirements (Both Paths)**
+
+1. **Terraform Best Practices:**
+   - Modular structure with reusable modules
+   - Variables, outputs, and proper state management
+   - Version locking and dependency handling
+   - Environment separation (dev/staging/prod)
+
+2. **IaC Security:**
+   - Integrate `tfsec` or `checkov` for Terraform scanning
+   - Fail pipeline on critical misconfigurations
+   - Document security decisions and exceptions
+
+3. **Documentation:**
+   - Clear setup instructions for your chosen path
+   - Architecture diagrams
+   - Resource inventory and costs (if using AWS)
+
+---
+
+## 🚀 Part 2 – CI/CD with Jenkins
+
+### 🔧 Jenkins Setup Options
+
+#### 💻 **Local Path**: Jenkins in Docker container
+
+```bash
+# Local Jenkins setup example
+docker run -d -p 8080:8080 -p 50000:50000 \
+  -v jenkins_home:/var/jenkins_home \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --name jenkins jenkins/jenkins:lts
+```
+
+### 📋 Pipeline Requirements (6 Stages)
+
+1. **Code Checkout**
+   - Pull source code from Git
+   - Set up workspace and environment variables
+
+2. **Static Code Analysis**
+   - Scan Terraform code using `tfsec` or `checkov`
+   - Optional: Application code scan (SonarQube, ESLint, etc.)
+   - Generate security reports
+
+3. **Docker Build & Push**
+   - Build Docker image for sample application
+   - Tag with build number and commit hash
+   - Push to registry (DockerHub for cloud, local registry for local setup)
+
+4. **Image Security Scanning**
+   - Scan container images with `Trivy` or `Grype`
+   - Check for vulnerabilities and compliance
+   - Generate security reports
+
+5. **Deployment**
+   - Deploy to Kubernetes cluster
+   - Support both Helm charts and YAML manifests
+   - Implement environment promotion (dev → staging → prod)
+   - Manual approval gates for production
+
+6. **Rollback Capability**
+   - Version-based rollback using Git tags
+   - Helm revision rollback
+   - Database migration rollback (if applicable)
+
+### 🛠️ **Local Development Advantages**
+- Faster feedback loops
+- No cloud resource costs
+- Complete environment control
+- Easier debugging and troubleshooting
+
+---
+
+## ☸️ Part 3 – Kubernetes Deployment
+
+### 🎯 **Deployment Options**
+
+Choose **ONE** of the following approaches:
+
+#### **Option A: YAML Manifests**
+*Recommended for learning Kubernetes fundamentals*
+- Raw Kubernetes YAML files
+- Direct control over all resources
+- Good for understanding K8s concepts
+
+#### **Option B: Helm Charts**
+*Recommended for production-like experience*
+- Templated deployments
+- Package management
+- Easy upgrades and rollbacks
+
+### 📋 **Core Requirements**
+
+#### **Environment Setup**
+- **Staging Environment**: `staging` namespace
+- **Production Environment**: `production` namespace
+- Environment-specific configurations
+
+#### **Application Configuration**
+- Resource requests and limits
+- Readiness and liveness probes
+- Environment variables and ConfigMaps
+- Secrets management (non-hardcoded)
+
+#### **Networking & Security**
+- Service exposure (ClusterIP, NodePort, or LoadBalancer)
+- Ingress configuration with TLS
+  - **AWS**: ALB or NLB with ACM certificates
+  - **Local**: NGINX Ingress with self-signed certificates
+- Network Policies (optional but recommended)
+
+#### **Advanced Features (Optional)**
+- RBAC (Role-Based Access Control)
+- Pod Security Policies/Standards
+- Horizontal Pod Autoscaling (HPA)
+- Persistent Volume Claims (if needed)
+
+### 🏠 **Local Setup Specifics**
+
+```bash
+# Enable Ingress on Minikube
+minikube addons enable ingress
+
+# Create local registry
+docker run -d -p 5000:5000 --name registry registry:2
+
+# Port forwarding for local access
+kubectl port-forward service/my-app 8080:80
+```
+
+---
+
+## 🔐 Part 4 – Security Practices
+
+### 🛡️ **Infrastructure Security**
+- **Terraform Scanning**: Use `tfsec` or `checkov` in CI/CD pipeline
+- **Policy as Code**: Implement security policies and compliance checks
+- **Access Control**: 
+  - **AWS**: IAM roles with least-privilege principles
+  - **Local**: Kubernetes RBAC and service accounts
+
+### 🐳 **Container Security**
+- **Image Scanning**: Use `Trivy`, `Grype`, or `Docker Scout`
+- **Base Image Security**: Use minimal, updated base images
+- **Runtime Security**: Non-root containers, read-only filesystems
+
+### 🔑 **Secrets Management**
+- **Never commit secrets** to version control
+- **Jenkins**: Use Jenkins Credentials Store
+- **Kubernetes**: Use Secrets and ConfigMaps
+- **Local Development**: Use `.env` files (gitignored)
+- **AWS**: Integration with AWS Secrets Manager/Parameter Store
+
+### 📊 **Security Monitoring**
+- Security scan reports in CI/CD
+- Vulnerability tracking and remediation
+- Compliance reporting
+- Security metrics and alerting
+
+---
+
+## 📁 Enhanced Project Structure
+
+```
+devops-challenge/
+│
+├── README.md                    # Main documentation
+├── SETUP.md                     # Detailed setup instructions
+├── ARCHITECTURE.md              # Architecture decisions
+│
+├── terraform/                   # Infrastructure as Code
+│   ├── modules/                 # Reusable Terraform modules
+│   │   ├── networking/
+│   │   ├── kubernetes/
+│   │   └── security/
+│   ├── environments/            # Environment-specific configs
+│   │   ├── local/
+│   │   ├── staging/
+│   │   └── production/
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── versions.tf
+│
+├── jenkins/                     # CI/CD Configuration
+│   ├── Jenkinsfile              # Main pipeline
+│   ├── scripts/                 # Helper scripts
+│   └── plugins.txt              # Required Jenkins plugins
+│
+├── kubernetes/                  # K8s Deployments
+│   ├── manifests/               # Raw YAML files
+│   │   ├── staging/
+│   │   └── production/
+│   ├── helm-chart/              # Helm chart (if chosen)
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+│   │   └── templates/
+│   └── kustomize/               # Kustomize overlays (optional)
+│
+├── application/                 # Sample Application
+│   ├── src/                     # Application source code
+│   ├── Dockerfile
+│   ├── docker-compose.yml       # Local development
+│   └── requirements.txt         # Dependencies
+│
+├── monitoring/                  # Observability (bonus)
+│   ├── prometheus/
+│   ├── grafana/
+│   └── alerting/
+│
+├── security/                    # Security configurations
+│   ├── policies/                # Security policies
+│   ├── scans/                   # Security scan configs
+│   └── certificates/            # TLS certificates
+│
+├── scripts/                     # Automation scripts
+│   ├── setup-local.sh           # Local environment setup
+│   ├── deploy.sh                # Deployment helper
+│   └── cleanup.sh               # Environment cleanup
+│
+└── docs/                        # Additional documentation
+    ├── images/                  # Architecture diagrams
+    ├── troubleshooting.md
+    └── best-practices.md
+```
+### 📋 **Required Deliverables**
+
+#### **Code & Configuration**
+- Complete Terraform infrastructure code
+- Jenkins pipeline configuration (Jenkinsfile)
+- Kubernetes manifests or Helm charts
+- Sample application with Dockerfile
+- All supporting scripts and configurations
+
+#### **Documentation**
+- **README.md**: Project overview and quick start
+- **SETUP.md**: Detailed setup instructions for your chosen path
+- **ARCHITECTURE.md**: Technical decisions and trade-offs
+- Architecture diagrams (draw.io, Lucidchart, or similar)
+- Security considerations and implementations
+
+### 📊 **Documentation Requirements**
+
+Your documentation should include:
+
+1. **Setup Instructions**
+   - Prerequisites and dependencies
+   - Step-by-step deployment guide
+   - Troubleshooting common issues
+
+2. **Architecture Decisions**
+   - Why you chose cloud vs local
+   - Technology stack justification
+   - Security implementation approach
+   - Scalability considerations
+
+3. **Lessons Learned**
+   - Challenges faced and solutions
+   - What you would improve with more time
+   - Alternative approaches considered
+
+4. **Demo Instructions**
+   - How to test the deployed application
+   - How to trigger the CI/CD pipeline
+   - How to perform rollbacks

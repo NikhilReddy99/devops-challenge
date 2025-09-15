@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"/><title>Chat Frontend</title></head>
+  <body>
+    <div id="root">
+      <h1>Micro Chat Frontend</h1>
+      <input id="username" placeholder="username"/>
+      <button id="reg">Register</button>
+      <ul id="messages"></ul>
+      <input id="msg" placeholder="message"/>
+      <button id="send">Send</button>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.5.2/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script>
+      const wsUrl = 'http://localhost:8080/ws';
+      const socket = new SockJS(wsUrl);
+      const client = Stomp.over(socket);
+      client.connect({}, function() {
+        client.subscribe('/topic/messages', function(msg) {
+          const ul = document.getElementById('messages');
+          const li = document.createElement('li');
+          li.textContent = msg.body;
+          ul.appendChild(li);
+        });
+      });
+      document.getElementById('send').onclick = function(){
+        const u = document.getElementById('username').value || 'anon';
+        const m = document.getElementById('msg').value;
+        client.send('/app/chat', {}, JSON.stringify({userId:0, content: m}));
+        document.getElementById('msg').value = '';
+      };
+    </script>
+  </body>
+</html>

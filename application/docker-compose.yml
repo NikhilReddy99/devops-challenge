@@ -1,0 +1,58 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: chatuser
+      POSTGRES_PASSWORD: chatpass
+      POSTGRES_DB: chatdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  user-service:
+    build: ./services/user-service
+    image: nikhilreddy99/user-service:1.0.0
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/chatdb
+      SPRING_DATASOURCE_USERNAME: chatuser
+      SPRING_DATASOURCE_PASSWORD: chatpass
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+
+  messages-service:
+    build: ./services/messages-service
+    image: nikhilreddy99/messages-service:1.0.0
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/chatdb
+      SPRING_DATASOURCE_USERNAME: chatuser
+      SPRING_DATASOURCE_PASSWORD: chatpass
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+
+  chat-service:
+    build: ./services/chat-service
+    image: nikhilreddy99/chat-service:1.0.0
+    environment:
+      MESSAGES_SERVICE_URL: http://messages-service:8082
+    ports:
+      - "8083:8083"
+    depends_on:
+      - messages-service
+
+  frontend:
+    build: ./frontend
+    image: nikhilreddy99/frontend:1.0.0
+    ports:
+      - "3000:3000"
+    depends_on:
+      - chat-service
+      - user-service
+      - messages-service
+
+volumes:
+  pgdata:

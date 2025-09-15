@@ -1,0 +1,15 @@
+resources:
+  - deployments/frontend-deployment.yaml
+  - services/frontend-service.yaml
+  - deployments/chat-service-deployment.yaml
+  - services/chat-service-service.yaml
+  - deployments/user-service-deployment.yaml
+  - services/user-service-service.yaml
+  - deployments/messages-service-deployment.yaml
+  - services/messages-service-service.yaml
+  - rbac.yaml
+  - networkpolicy.yaml
+  - resourcequota.yaml
+  - hpa-chat.yaml
+  - hpa-user.yaml
+  - hpa-messages.yaml

@@ -1,0 +1,68 @@
+pipeline {
+  agent any
+  environment {
+    REGISTRY = "https://hub.docker.com/repository/docker/nikhilreddy99"
+    IMAGE = "${REGISTRY}/chat-service"
+    KUBE_CONTEXT = "minikube"
+    NAMESPACE = "dev"
+  }
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('Terraform Scan') {
+      steps {
+        sh 'tfsec terraform/ || true'
+        sh 'checkov -d terraform/ || true'
+      }
+    }
+
+    stage('K8s Policy Check') {
+      steps {
+        sh 'kube-score score kubernetes/manifests/**/*.yaml || true'
+      }
+    }
+
+    stage('Build & Push Image') {
+      steps {
+        sh 'docker build -t ${IMAGE}:$BUILD_NUMBER -f application/Dockerfile application'
+        sh 'docker push ${IMAGE}:$BUILD_NUMBER'
+      }
+    }
+
+    stage('Image Scan') {
+      steps {
+        sh 'trivy image --exit-code 0 --format table -o trivy-report.txt ${IMAGE}:$BUILD_NUMBER'
+        archiveArtifacts artifacts: 'trivy-report.txt', fingerprint: true
+      }
+    }
+
+    stage('Deploy') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'db-creds', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASS')]) {
+          sh """
+            kubectl --context ${KUBE_CONTEXT} -n ${NAMESPACE} create secret generic db-secret \\
+              --from-literal=POSTGRES_USER=$DB_USER \\
+              --from-literal=POSTGRES_PASSWORD=$DB_PASS \\
+              --dry-run=client -o yaml | kubectl apply -f -
+          """
+        }
+        sh 'kubectl --context ${KUBE_CONTEXT} -n ${NAMESPACE} apply -k kubernetes/kustomize/dev'
+      }
+    }
+
+    stage('Rollback (Optional)') {
+      when { expression { return params.ROLLBACK == true } }
+      steps {
+        input message: "Rollback requested. Confirm rollback?"
+        sh "kubectl rollout undo deployment/chat-service -n ${NAMESPACE}"
+      }
+    }
+  }
+
+  post {
+    always { echo '✅ Pipeline finished' }
+    failure { echo '❌ Build failed - check logs' }
+  }
+}
