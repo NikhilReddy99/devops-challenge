@@ -5,6 +5,6 @@ NAMESPACE=${1:-dev}
 echo "🚀 Deploying to namespace: $NAMESPACE"
 
 kubectl create ns $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -k kubernetes/kustomize/$NAMESPACE
+kubectl apply -k kubernetes/kustomize/overlays/$NAMESPACE
 
 echo "✅ Deployment successful."

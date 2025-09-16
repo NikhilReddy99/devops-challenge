@@ -1,9 +1,17 @@
+# Architecture Diagram
+
+The architecture diagram (editable Draw.io format) is located at:
+
+`docs/images/devops-architecture.drawio`
+
+Open it with draw.io (https://app.diagrams.net/)
+
 # Architecture Overview
 
 Local-first architecture:
 - Developer machine runs Docker Desktop.
 - Minikube uses Docker driver (single-node k8s).
-- Local Docker registry at localhost:5000 for images.
+- Docker registry at nikhilreddy99 dockerhub for images.
 - Jenkins runs in Docker for CI/CD.
 - Terraform used to start Minikube (local-exec) and manage k8s resources via kubernetes provider.
 - Sample microservices:

@@ -1,29 +1,24 @@
-########################################
-# Module: k8s
-# Purpose: create namespace and an example deployment + service
-# Note: This module expects the root to configure the kubernetes provider and ensures
-# resources are created after minikube start (use module depends_on in calling module).
-########################################
-
-resource "kubernetes_namespace_v1" "ns" {
+resource "kubernetes_namespace" "this" {
   metadata {
     name = var.namespace
-    labels = var.namespace_labels
+    labels = {
+      env = var.namespace
+    }
   }
 }
 
-resource "kubernetes_deployment_v1" "app" {
+resource "kubernetes_deployment" "app" {
   metadata {
     name      = var.app_name
-    namespace = kubernetes_namespace_v1.ns.metadata[0].name
+    namespace = kubernetes_namespace.this.metadata[0].name
     labels = {
       app = var.app_name
-      env = var.environment
     }
   }
 
   spec {
     replicas = var.replicas
+
     selector {
       match_labels = {
         app = var.app_name
@@ -41,28 +36,15 @@ resource "kubernetes_deployment_v1" "app" {
         container {
           name  = var.app_name
           image = var.image
+
           port {
-            container_port = var.container_port
+            container_port = 80
           }
-          resources {
-            limits = var.resources_limits
-            requests = var.resources_requests
-          }
-          readiness_probe {
-            http_get {
-              path = var.readiness_path
-              port = var.container_port
-            }
-            initial_delay_seconds = 5
-            period_seconds = 5
-          }
-          liveness_probe {
-            http_get {
-              path = var.liveness_path
-              port = var.container_port
-            }
-            initial_delay_seconds = 15
-            period_seconds = 20
+
+          # Add minimal securityContext for runtime safety
+          security_context {
+            run_as_non_root = true
+            run_as_user     = 1000
           }
         }
       }
@@ -70,22 +52,20 @@ resource "kubernetes_deployment_v1" "app" {
   }
 }
 
-resource "kubernetes_service_v1" "svc" {
+resource "kubernetes_service" "app" {
   metadata {
     name      = "${var.app_name}-svc"
-    namespace = kubernetes_namespace_v1.ns.metadata[0].name
+    namespace = kubernetes_namespace.this.metadata[0].name
   }
 
   spec {
     selector = {
       app = var.app_name
     }
-
     port {
-      port        = var.service_port
-      target_port = var.container_port
+      port        = 80
+      target_port = 80
     }
-
-    type = var.service_type
+    type = "ClusterIP"
   }
 }

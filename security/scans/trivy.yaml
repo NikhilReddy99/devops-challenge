@@ -1,4 +1,13 @@
 severity:
-  - HIGH
   - CRITICAL
-ignoreUnfixed: true
+  - HIGH
+ignoreUnfixed: false
+vulnType:
+  - os
+  - library
+output:
+  format: "table"
+  template: ""
+cacheDir: "~/.cache/trivy"
+skipFiles:
+  - "**/node_modules/**"

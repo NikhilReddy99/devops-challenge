@@ -1,13 +1,28 @@
 provider "kubernetes" {
-  config_path = pathexpand("~/.kube/config")
-  config_context = "staging"
+  config_path    = "~/.kube/config"
+  config_context = "minikube"
 }
 
-module "kubernetes_app" {
-  source       = "../../modules/kubernetes"
-  namespace    = var.environment
-  app_name     = "sample-app"
-  image        = var.image_tag
-  replicas     = var.replicas
-  environment  = var.environment
+module "kubernetes" {
+  source    = "../../modules/kubernetes"
+  namespace = "staging"
+  replicas  = 1
+  image     = "nikhilreddy99/frontend:1.0.0"
+  app_name  = "frontend"
+}
+
+module "networking" {
+  source    = "../../modules/networking"
+  namespace = module.kubernetes.namespace
+  app_label = "frontend"
+}
+
+module "security" {
+  source    = "../../modules/security"
+  namespace = module.kubernetes.namespace
+  sa_name   = "frontend"
+}
+
+output "namespace" {
+  value = module.kubernetes.namespace
 }

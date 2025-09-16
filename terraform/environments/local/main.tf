@@ -5,7 +5,7 @@ provider "kubernetes" {
 
 module "kubernetes" {
   source    = "../../modules/kubernetes"
-  namespace = "production"
+  namespace = "dev"
   replicas  = 1
   image     = "nikhilreddy99/frontend:1.0.0"
   app_name  = "frontend"
