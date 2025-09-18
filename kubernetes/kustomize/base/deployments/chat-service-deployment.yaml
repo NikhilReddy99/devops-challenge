@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chat-service
+  labels:
+    app: chat-service
 spec:
   replicas: 2
   selector:
@@ -11,9 +13,32 @@ spec:
     metadata:
       labels:
         app: chat-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8089"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
-      - name: chat-service
-        image: nikhilreddy99/chat-service:1.0.0
-        ports:
-        - containerPort: 8089
+        - name: chat-service
+          image: nikhilreddy99/chat-service:1.0.0
+          ports:
+            - containerPort: 8089
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8089
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8089
+            initialDelaySeconds: 15
+            periodSeconds: 10
