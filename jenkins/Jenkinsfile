@@ -1,14 +1,59 @@
 pipeline {
-  agent any
+  agent any {
+    docker {
+      image 'docker:20.10.16'
+      args '-v /var/run/docker.sock:/var/run/docker.sock'
+    }
+  }
   environment {
-    REGISTRY = "https://hub.docker.com/repository/docker/nikhilreddy99"
+    REGISTRY = "docker.io/nikhilreddy99"
     IMAGE = "${REGISTRY}/chat-service"
     KUBE_CONTEXT = "minikube"
     NAMESPACE = "dev"
   }
   stages {
     stage('Checkout') {
-      steps { checkout scm }
+      steps {
+        git branch: 'main', url: 'https://github.com/NikhilReddy99/devops-challenge.git'
+      }
+    }
+
+    stage('Build & Push Image') {
+      steps {
+        sh 'docker build -t ${IMAGE}:${BUILD_NUMBER} -f application/services/chat-service/Dockerfile application/services/chat-service'
+        sh 'docker push ${IMAGE}:${BUILD_NUMBER}'
+      }
+    }
+
+    stage('Image Scan') {
+      steps {
+        sh 'trivy image --exit-code 0 --format table -o trivy-report.txt ${IMAGE}:${BUILD_NUMBER}'
+        archiveArtifacts artifacts: 'trivy-report.txt', fingerprint: true
+      }
+    }
+
+    stage('Terraform Init') {
+      steps {
+        dir('terraform/minikube-prometheus-terraform') {
+          sh 'terraform init'
+        }
+      }
+    }
+
+    stage('Terraform Apply') {
+      steps {
+        dir('terraform/minikube-prometheus-terraform') {
+          sh "terraform apply -auto-approve -var image_tag=${BUILD_NUMBER}"
+        }
+      }
+    }
+
+    stage('Wait for Metrics') {
+      steps {
+        sh 'sleep 30'
+        sh 'kubectl get pods -n ${NAMESPACE}'
+        sh 'kubectl get svc -n ${NAMESPACE}'
+      }
     }
 
     stage('Terraform Scan') {
@@ -24,27 +69,13 @@ pipeline {
       }
     }
 
-    stage('Build & Push Image') {
-      steps {
-        sh 'docker build -t ${IMAGE}:$BUILD_NUMBER -f application/Dockerfile application'
-        sh 'docker push ${IMAGE}:$BUILD_NUMBER'
-      }
-    }
-
-    stage('Image Scan') {
-      steps {
-        sh 'trivy image --exit-code 0 --format table -o trivy-report.txt ${IMAGE}:$BUILD_NUMBER'
-        archiveArtifacts artifacts: 'trivy-report.txt', fingerprint: true
-      }
-    }
-
     stage('Deploy') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'db-creds', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASS')]) {
           sh """
-            kubectl --context ${KUBE_CONTEXT} -n ${NAMESPACE} create secret generic db-secret \\
-              --from-literal=POSTGRES_USER=$DB_USER \\
-              --from-literal=POSTGRES_PASSWORD=$DB_PASS \\
+            kubectl --context ${KUBE_CONTEXT} -n ${NAMESPACE} create secret generic db-secret \
+              --from-literal=POSTGRES_USER=$DB_USER \
+              --from-literal=POSTGRES_PASSWORD=$DB_PASS \
               --dry-run=client -o yaml | kubectl apply -f -
           """
         }
