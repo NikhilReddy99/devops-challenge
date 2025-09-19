@@ -13,4 +13,4 @@ configMapGenerator:
       - ENV=staging
       - USER_SERVICE_HOST=user-service.staging.svc.cluster.local
 patchesStrategicMerge:
-  - ingress.yaml
+  - ingress.yaml 

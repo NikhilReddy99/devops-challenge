@@ -1,41 +1,63 @@
 pipeline {
-  agent any {
-    docker {
-      image 'docker:20.10.16'
-      args '-v /var/run/docker.sock:/var/run/docker.sock'
-    }
-  }
+  agent any
+
   environment {
-    REGISTRY = "docker.io/nikhilreddy99"
-    IMAGE = "${REGISTRY}/chat-service"
+    DOCKER_REPO = "nikhilreddy99"
+    IMAGE_NAME  = "chat-service"
+    IMAGE_TAG   = "${env.BUILD_NUMBER}"
+    IMAGE       = "${DOCKER_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
     KUBE_CONTEXT = "minikube"
-    NAMESPACE = "dev"
+    NAMESPACE    = "dev"
   }
+
+  parameters {
+    booleanParam(name: 'ROLLBACK', defaultValue: false, description: 'Rollback deployment?')
+  }
+
   stages {
     stage('Checkout') {
       steps {
         git branch: 'main', url: 'https://github.com/NikhilReddy99/devops-challenge.git'
+        sh 'ls -la'
       }
     }
 
-    stage('Build & Push Image') {
+    stage('Build JAR') {
       steps {
-        sh 'docker build -t ${IMAGE}:${BUILD_NUMBER} -f application/services/chat-service/Dockerfile application/services/chat-service'
-        sh 'docker push ${IMAGE}:${BUILD_NUMBER}'
+        dir('application/services/chat-service') {
+          sh 'mvn -B clean package -DskipTests'
+        }
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
+          dir('application/services/chat-service') {
+            sh """
+              echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+              docker build -t ${IMAGE} -f Dockerfile .
+              docker push ${IMAGE}
+              docker logout
+            """
+          }
+        }
       }
     }
 
     stage('Image Scan') {
       steps {
-        sh 'trivy image --exit-code 0 --format table -o trivy-report.txt ${IMAGE}:${BUILD_NUMBER}'
-        archiveArtifacts artifacts: 'trivy-report.txt', fingerprint: true
+        dir('application/services/chat-service') {
+          sh "trivy image --exit-code 0 --format table -o trivy-report.txt ${IMAGE} || true"
+          archiveArtifacts artifacts: 'application/services/chat-service/trivy-report.txt', fingerprint: true
+        }
       }
     }
 
     stage('Terraform Init') {
       steps {
         dir('terraform/minikube-prometheus-terraform') {
-          sh 'terraform init'
+          sh 'terraform init -input=false'
         }
       }
     }
@@ -43,57 +65,57 @@ pipeline {
     stage('Terraform Apply') {
       steps {
         dir('terraform/minikube-prometheus-terraform') {
-          sh "terraform apply -auto-approve -var image_tag=${BUILD_NUMBER}"
+          sh "terraform apply -auto-approve -var 'image=${IMAGE}' -var 'namespace=${NAMESPACE}'"
         }
       }
     }
 
-    stage('Wait for Metrics') {
-      steps {
-        sh 'sleep 30'
-        sh 'kubectl get pods -n ${NAMESPACE}'
-        sh 'kubectl get svc -n ${NAMESPACE}'
-      }
-    }
-
-    stage('Terraform Scan') {
-      steps {
-        sh 'tfsec terraform/ || true'
-        sh 'checkov -d terraform/ || true'
-      }
-    }
-
-    stage('K8s Policy Check') {
-      steps {
-        sh 'kube-score score kubernetes/manifests/**/*.yaml || true'
-      }
-    }
-
-    stage('Deploy') {
+    stage('Create DB Secret in Kubernetes') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'db-creds', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASS')]) {
           sh """
             kubectl --context ${KUBE_CONTEXT} -n ${NAMESPACE} create secret generic db-secret \
-              --from-literal=POSTGRES_USER=$DB_USER \
-              --from-literal=POSTGRES_PASSWORD=$DB_PASS \
+              --from-literal=POSTGRES_USER=${DB_USER} \
+              --from-literal=POSTGRES_PASSWORD=${DB_PASS} \
               --dry-run=client -o yaml | kubectl apply -f -
           """
         }
-        sh 'kubectl --context ${KUBE_CONTEXT} -n ${NAMESPACE} apply -k kubernetes/kustomize/dev'
+      }
+    }
+
+    stage('Wait & Verify') {
+      steps {
+        sh "kubectl --context ${KUBE_CONTEXT} -n ${NAMESPACE} rollout status deployment/chat-service --timeout=120s || true"
+        sh "kubectl --context ${KUBE_CONTEXT} -n ${NAMESPACE} get pods -o wide || true"
+      }
+    }
+
+    stage('Optional: Run smoke tests') {
+      steps {
+        echo 'Run smoke tests here if you have any'
+      }
+    }
+
+    stage('Scan & Lint Terraform/K8s') {
+      steps {
+        sh 'tfsec terraform/ || true'
+        sh 'checkov -d terraform/ || true'
+        sh 'kube-score score kubernetes/manifests/**/*.yaml || true'
       }
     }
 
     stage('Rollback (Optional)') {
       when { expression { return params.ROLLBACK == true } }
       steps {
-        input message: "Rollback requested. Confirm rollback?"
-        sh "kubectl rollout undo deployment/chat-service -n ${NAMESPACE}"
+        input message: "Confirm rollback?"
+        sh "kubectl --context ${KUBE_CONTEXT} -n ${NAMESPACE} rollout undo deployment/chat-service"
       }
     }
   }
 
   post {
-    always { echo '✅ Pipeline finished' }
-    failure { echo '❌ Build failed - check logs' }
+    success { echo "Build #${env.BUILD_NUMBER} succeeded." }
+    failure { echo "Build #${env.BUILD_NUMBER} failed." }
+    always { cleanWs() }
   }
 }

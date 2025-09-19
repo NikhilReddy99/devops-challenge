@@ -15,8 +15,3 @@ configMapGenerator:
     literals:
       - ENV=dev
       - USER_SERVICE_HOST=user-service.dev.svc.cluster.local
-secretGenerator:
-  - name: db-secret
-    literals:
-      - POSTGRES_USER=devuser
-      - POSTGRES_PASSWORD=devpass

@@ -14,5 +14,3 @@ configMapGenerator:
       - USER_SERVICE_HOST=user-service.production.svc.cluster.local
 patchesStrategicMerge:
   - ingress.yaml
-resources:
-  - sealed-secrets/sealed-db-secret.yaml
